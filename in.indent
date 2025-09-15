@@ -1,0 +1,81 @@
+# 2d indenter simulation
+
+dimension	2
+boundary	p s p
+
+atom_style	atomic
+neighbor	0.3 bin
+neigh_modify	delay 5
+
+# create geometry
+
+lattice		hex 0.9
+region		box block 0 40 0 20 -0.25 0.25
+create_box	2 box
+create_atoms	1 box
+
+mass		1 1.0
+mass		2 1.0
+
+# LJ potentials
+
+pair_style	lj/cut 2.5
+pair_coeff	* * 1.0 1.0 2.5
+
+# define groups
+
+region	        1 block INF INF INF 1.25 INF INF
+group		lower region 1
+group		mobile subtract all lower
+set		group lower type 2
+
+# initial velocities
+
+compute	  	new mobile temp
+velocity	mobile create 0.2 482748 temp new
+fix		1 all nve
+
+fix		3 all temp/rescale 100 0.1 0.1 0.01 1.0
+
+# run with indenter
+
+timestep	0.003
+variable	k equal 1000.0/xlat
+variable        a equal 1.0+step*0.02*xlat
+
+fix		4 all indent/force  10 sphere 20 70 0 20.0 0 100 0 units box
+fix		2 lower setforce 0.0 0.0 0.0
+
+
+variable fx equal f_4[1]    # x方向力
+variable fy equal f_4[2]    # y方向力
+variable fz equal f_4[3]    # z方向力
+variable xx equal f_4[4]    # x位置
+variable yy equal f_4[5]    # y位置
+variable zz equal f_4[6]    # z位置
+
+
+
+fix		5 all enforce2d
+
+thermo		100
+thermo_modify	temp new
+thermo_style custom step temp v_fx v_fy v_fz v_xx v_yy v_zz
+
+dump		1 all xyz 100 dump.indent.old.xyz
+fix         10 all print 100 '$(step) ${fx} ${fy} ${fz} ${yy}' file indent.dat.old screen no
+
+#dump		2 all image 1000 image.*.jpg type type &
+#		zoom 1.6 adiam 1.5
+#dump_modify	2 pad 5
+
+#dump		3 all movie 1000 movie.mpg type type &
+#		zoom 1.6 adiam 1.5
+#dump_modify	3 pad 5
+
+run		40000
+
+# run without indenter
+
+#unfix           4
+#run		30000
